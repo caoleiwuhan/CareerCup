@@ -1,0 +1,528 @@
+一、
+If you were integrating a feed of end of day stock price information 
+(open, high, low, and closing price) for 5,000 companies, how would you do it? 
+You are responsible for the development, rollout and ongoing monitoring and 
+maintenance of the feed. Describe the different methods you considered and 
+why you would recommend your approach. The feed is delivered once per trading day 
+in a comma-separated format via an FTP site. The feed will be used by 1000 daily users 
+in a web application
+
+1：数据库
+	修改、更新、管理、并发访问
+	提供数据的备份、安全、回滚
+	关系型数据库、key-value数据库
+2：xml
+	如果只是简单的分发
+	固定格式与大小
+	优点：容易分发、高效解析需要的数据、添加数据方便
+	缺点：查询不方便
+	<root>
+		<data value="2013-06-24">
+			<company name="foo">
+				<open>123</open>
+				<high>133</high>
+				<low>118</low>
+				<closingPrice>125</closingPrice>
+			</company>
+			<company name="bar">
+				<open>223</open>
+				<high>233</high>
+				<low>218</low>
+				<closingPrice>225</closingPrice>
+			</company>
+		</data>
+		<data value="2013-06-23">
+			<company name="foo">
+				<open>123</open>
+				<high>133</high>
+				<low>118</low>
+				<closingPrice>125</closingPrice>
+			</company>
+			<company name="bar">
+				<open>223</open>
+				<high>233</high>
+				<low>218</low>
+				<closingPrice>225</closingPrice>
+			</company>
+		</data>
+	</root>
+
+3：file
+	难于更新、管理、查询
+
+
+二、
+How would you design the data structures for a very large social network 
+(Facebook, LinkedIn, etc)? Describe how you would design an algorithm to show the 
+connection, or path, between two people (e.g., Me -> Bob -> Susan -> Jason -> You).
+1:基本情况
+Person
+{
+	vector<Person> friends;
+};
+2：millions of data
+	朋友信息不一定在同一台机器中。
+	Person
+	{
+		vector<ID> friends;
+	};
+	转换过程：
+		1：for each id：machine_index = lookupMachineForUser(ID);
+		2:Go to machine machine_index
+		3:Person friend = lookupFriend(machine_index, ID);
+3:优化
+	1：机器间的跳转很费时：同时处理一台机器中的所有Person
+	2：Person的分布
+		例如：将某一个地区的人放到同一台机器上
+
+4：问题：
+	1：对于BFS，一般要记录每一台机器是否已经被访问过了，如何记录？
+	2：机器挂掉了，怎么办？
+	3：如何利用缓存？
+	4：如何决定搜索的结束条件（例如如果经过7跳还找不到，就放弃）？
+	5：现实中，一些人有更多的朋友，因此更容易搜索到结果，如何利用这个信息？
+		启发式搜索
+
+数据存储：数据备份
+缓存：
+
+ public class Server 
+ {
+	ArrayList<Machine> machines = new ArrayList<Machine>();
+ }
+
+ public class Machine 
+ {
+	public ArrayList<Person> persons = new ArrayList<Person>();
+	public int machineID;
+ }
+
+ public class Person 
+ {
+	 private ArrayList<Integer> friends;
+	 private int ID;
+	 private int machineID;
+	 private String info;
+	 private Server server = new Server();
+
+	 public String getInfo() 
+	 { 
+		return info; 
+	 }
+
+	 public void setInfo(String info) 
+	 {
+		this.info = info;
+	 }
+
+	 public int[] getFriends() 
+	 {
+		 int[] temp = new int[friends.size()];
+		 for (int i = 0; i < temp.length; i++) 
+		 {
+			temp[i] = friends.get(i);
+		 }
+		 return temp;
+	 }
+
+	 public int getID() { return ID; }
+
+	 public int getMachineID() { return machineID; }
+
+	 public void addFriend(int id) { friends.add(id); }
+
+	 // Look up a person given their ID and Machine ID
+	 public Person lookUpFriend(int machineID, int ID) 
+	 {
+		 for (Machine m : server.machines) 
+		 {
+			if (m.machineID == machineID) 
+			{
+				for (Person p : m.persons) 
+				{
+					if (p.ID == ID)
+					{
+						return p;
+					}
+				}
+			}
+		}
+		return null;
+	 }
+	 
+	 // Look up a machine given the machine ID
+	 public Machine lookUpMachine(int machineID) 
+	 {
+		 for (Machine m:server.machines) 
+		 {
+			if (m.machineID == machineID)
+			return m;
+		 }
+		return null;
+	 }
+
+	 public Person(int iD, int machineID) 
+	 {
+		ID = iD;
+		this.machineID = machineID;
+	 }
+}
+
+三、
+Given an input file with four billion integers, provide an algorithm to generate 
+an integer which is not contained in the file. Assume you have 1 GB of memory.
+FOLLOW UP
+What if you have only 10 MB of memory?
+1：bitmap
+2：hash
+	将数据hash到1000个文件中，num%1000
+	桶排序：准备10000个桶，每一个的范围是[(i-1) * Range, i * Range]
+
+用移位和位运算代替除法和取余操作（比较耗时）
+SetBit(arr, int index)
+arr[index / 8] |= (1 << (arr[index % 8]));
+index % 8 == (index & 0x7)
+arr[index >> 3] |= (1 << (arr[index & 0x7));
+
+ClrBit(arr, index)
+arr[index / 8] &= ~(1 << (arr[index % 8]));
+arr[index >> 3] &= ~(1 << (arr[index & 0x7]));
+
+GetBit(arr, index)
+((arr[index / 8]) >> (1 << (arr[index % 8]))) & 1;
+((arr[index >> 3]) >> (1 << (arr[index & 0x7]))) & 1;
+
+五、
+If you were designing a web crawler, how would you avoid getting into infinite loops?
+1：标记已经处理过的page
+2：
+
+
+六、
+You have a billion urls, where each is a huge page. 
+How do you detect the duplicate documents?
+1：hash，将可能相同的hash到同一台机器，然后在同一台机器上作相应处理
+First, we hash the document to get a hash value v
+v%n tells us which machine this document’s hash table can be found on.
+v / n is the value in the hash table that is located on its machine.
+
+
+2G data, one string per line, how to sort it.
+1:
+
+Courses: CousreID*, CouseName, TeacherID
+Teachers: TeacherID*, TeacherName
+Students: StudentID*, StudentName
+StudentCourses: CourseID*, StudentID*
+
+1:get a list of all students and how many courses each
+	student is enrolled in.
+select StudentName, count(*) from Students left outer join
+StudentCourses where StudentCourses.StudentID=Students.StudentID
+group by StudentID
+
+1:inner join：完全匹配的才返回
+2：outer join：
+	a:left outer join(left join)
+		左表里的数据全部包含，如果右表没有对应的数据，以null代替
+	b:right outer join(right join)
+		右表里的数据全部包含，如果左表没有对应的数据，以null代替
+3：full outer join：
+	左表、右表的所有数据都包括，如果没有匹配项，以null代替
+
+线程安全的单例模式：
+
+ using namespace std;
+ /* Place holder for thread synchronization lock */
+ class Lock 
+ {
+ public:
+	 Lock() { /* placeholder code to create the lock */ }
+	 ~Lock() { /* placeholder code to deallocate the lock */ }
+	 void AcquireLock() { /* placeholder to acquire the lock */ }
+	 void ReleaseLock() { /* placeholder to release the lock */ }
+ };
+
+ /* Singleton class with a method that creates a new instance of the
+ * class of the type of the passed in template if it does not
+ * already exist. */
+ template <class T> 
+ class Singleton 
+ {
+ private:
+	 static Lock lock;
+	 static T* object;
+ protected:
+	Singleton() { };
+ public:
+	static T * instance();
+ };
+
+	Lock Singleton::lock;
+
+T * Singleton::Instance() 
+{
+	/* if object is not initialized, acquire lock */
+	if (object == 0) 
+	{
+		lock.AcquireLock();
+			/* If two threads simultaneously check and pass the first “if”
+			* condition, then only the one who acquired the lock first
+			* should create the instance */
+			if (object == 0) 
+			{
+			object = new T;
+			}
+		lock.ReleaseLock();
+	}
+	return object;
+}
+
+Write a function to swap a number in place without temporary variables
+void Swap(int &a, int &b)
+{
+	a ^= b;
+	a ^= b;
+	b ^= b;
+}
+void Swap(int &a, int &b)
+{	// 5 9
+	a = a + b;	// 14
+	b = a - b;	// 14 - 9 = 5
+	a = a - b;	// 14 - 5 = 9
+}
+
+void Swap(int &a, int &b)
+{	// 5 9
+	a = b - a;	// 9 - 5 = 4
+	b = b - a;	// 9 - 4 = 5
+	a = a + b;	// 4 + 5 = 9
+}
+
+bool IsWin(int arr[][3], int num)
+{
+	// 3行
+	for (int i = 0; i < 3; ++i)
+	{
+		if (IsCheck(arr, i, 0, mapRow)))
+			return true;
+	}
+	// 3列
+	for (int i = 0; i < 3; ++i)
+	{
+		if (IsCheck(arr, 0, i, mapRow)))
+			return true;
+	}
+	// 2个对角线
+	if (IsCheck(arr, 0, 0, mapDin)))
+		return true;
+	if (IsCheck(arr, 0, 0, mapRevDin)))
+		return true;
+	return false;	
+}
+
+bool IsCheck(int arr[][3], int x, int y, int map[][3])
+{
+	int num = arr[x][y];
+	for (int i = 1; i < 3; ++i)
+	{
+		if (arr[x + map[i]][0][y + map[i][1]] != num)
+			return false;
+	}
+	return true;
+}
+
+int mapRow[3][2] = 
+{
+	0, 0,
+	0, 1,
+	0, 2
+};
+
+int mapCol[3][2] = 
+{
+	0, 0,
+	1, 0,
+	2, 0
+};
+
+int mapDin[3][2] = 
+{
+	0, 0,
+	1, 1,
+	2, 2
+};
+int mapRevDin[3][2] = 
+{
+	0, 0,
+	-1, -1,
+	-2, -2
+};
+
+int ZeroNumber(int n)
+{
+	int count = 0;
+	int num = 5;
+	while (num <= n)
+	{
+		for (int i = num; i <= n; i += num)
+		{
+			++count;
+		}
+		num *= 5;
+	}
+	return count;
+}
+
+int ZeroNumber(int n)
+{
+	int count = 0;
+	int num = 5;
+	for (int i = num; i <= n; i *= 5)
+	{
+		count += n / 5;
+	}
+	return count;
+}
+
+返回两个数中的较大者
+x ^ 
+if (x > y)
+then (x - y > 0)
+如果x-y < 0
+则第31位为1
+if (((x - y) >> 31) & 01)
+	return y
+else
+	return x
+
+int k = ((x - y) >> 31) & 01;
+int c = x - y;
+max = a - k * c;
+k取0或1
+
+void MasterWind(string ans, string guess, int &hit, int &phit)
+{
+	hit = 0;
+	for (int i = 0; i < 4; ++i)
+	{
+		if (ans[i] == guess[i])
+		{
+			++hit;
+			ans[i] = '0';
+			guess[i] = '0';
+		}
+	}
+	int hash1[5] = {0};
+	int hash2[5] = {0};
+	for (int i = 0; i < 4; ++i)
+	{
+		++hash1[ans[i]];
+		++hash2[guess[i]];
+	}
+	phit = 0;
+	for (int i = 1; i <= 4; ++i)
+	{
+		phit += min(hash1[i], hash2[i]);
+	}
+}
+
+
+1:
+get a list of tenants who are renting more than one apartment.
+
+select tenantname from tenants, AptTenants where Tenants.tenantsID = 
+AptTenants.TenantID group by AptTenants.TenatID having count(*) >= 2
+
+2: get a list of all buildings and the number of open requests
+	(requests in which status equals 'Open').
+select BuildingName from Buildings, Apartments, Requests where Buildings.BuildingID = 
+Apartments.BuilingID and Apartments.AptID = Requests.AptID and
+Status = 'Open'
+
+分解子查询：
+select Apartment.BuildingID, count(*) as 'Count)
+from Apartment inner join Requests
+on Request.AptID = Aparetments.AptID
+where Request.Stats = 'Open'
+Group by Apartments.BuildingID) 
+
+select BuildingNamef, ISNULL(Count, 0) as 'Count'
+from Buildings
+left join
+(select Apartment.BuildingID, count(*) as 'Count)
+from Apartment inner join Requests
+on Request.AptID = Aparetments.AptID
+where Request.Stats = 'Open'
+Group by Apartments.BuildingID) reqCounts
+on reqCounts.BuildingID = buildings.buildingID
+
+3:close all requests from apartment in #11
+
+update Requests.Status = 'Close' where RequestID in
+()
+
+(select AptID from Apartments inner join Buidlings on
+Apartments.BuildingId = Buildings.BuildingID where
+BuildingID = 11) AptID_11
+
+select Requests.RequestID from Requests inner join
+AptID_11 on Requests.AptID = AptID_11.AptID
+
+update Requests.Status = 'Close' where RequestID in
+(
+	select Requests.RequestID from Requests inner join
+		(select AptID from Apartments inner join Buidlings on
+		Apartments.BuildingId = Buildings.BuildingID where
+		BuildingID = 11)
+	AptID_11 on Requests.AptID = AptID_11.AptID
+)
+
+阶乘中0的个数
+int ans = 0;
+for (int i = 5; i <= N; i *= 5)
+{
+	ans += (N / i);
+}
+
+17.4:两个数中的最大值
+if (x >= y)
+x - 0
+else
+x - (x - y)
+
+
+x - (x & (0 
+看符号（x-y）
+((x - y) & (((unsigned int)1) << 31)) == 1 
+x - (x - y) * ((x - y) & (((unsigned int)1) << 31))
+
+给定一个数字序列：
+	3 5 11 2 7 6 8 9
+	2 3 5  6 7 8 9 11
+
+	2 3 5 11 6 8 13 
+
+	1：中间的最大值比后面的都大小，最小值比前面的都大
+	2：前面的排好序、后面的排好序
+
+	O(NlogN)时间复杂度、O(N)空间复杂度：
+	1：排序
+	2：两个序列对比，找到最优解
+
+	是否存在O(N)的方案？
+	1：预处理，分别找到前i个后j个的最大值、最小值
+
+Given a string s, partition s such that every substring of the partition is a palindrome.
+Return all possible palindrome partitioning of s.
+For example, given s = "aab",
+Return
+  [
+    ["aa","b"],
+    ["a","a","b"]
+  ]
+
+aab
+a
+dp:
+f[i][j] = true
